@@ -1,0 +1,15 @@
+@startuml
+
+interface IQueue {
+    Enqueue(item QueueItem)
+    Dequeue() QueueItem
+}
+object Worker {
+    (msg []byte) error
+}
+interface IWorkerPool {
+    Delegate(queueName string, msg []byte) error
+    AddWorker(queueName string, worker Worker) error
+}
+
+@enduml
