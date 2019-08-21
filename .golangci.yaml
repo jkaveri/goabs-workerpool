@@ -33,12 +33,15 @@ linters:
     - maligned
     - prealloc
     - gochecknoglobals
+    - goimports
+    - gofmt
 
 run:
   skip-dirs:
     - .idea
     - .vscode
-
+  skip-files:
+    - mockgen.go
 issues:
   exclude-rules:
     - text: "weak cryptographic primitive"
@@ -47,4 +50,7 @@ issues:
     - text: "should have a package comment"
       linters:
         - golint
+    - text: "go:generate"
+      linters:
+        - lll
   exclude-use-default: false

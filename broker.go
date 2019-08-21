@@ -2,17 +2,18 @@ package workerpool
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pkg/errors"
 )
 
+// Broker implement IWorkerPool and IDelegator
 type Broker struct {
-	*QueueMapper
+	qm *queueMap
 }
 
+// NewBroker create new broker with broker options
 func NewBroker(opts ...BrokerOption) (*Broker, error) {
-	b := &Broker{NewQueueMapper()}
+	b := &Broker{newQueueMap()}
 
 	for _, opt := range opts {
 		err := opt(b)
@@ -24,10 +25,12 @@ func NewBroker(opts ...BrokerOption) (*Broker, error) {
 	return b, nil
 }
 
-func (t *Broker) AddWorker(ctx context.Context, name string, worker Worker) error {
-	queue := t.QueueMapper.Get(name)
+// AddWorker add worker to handle a message of queue which has
+// name match with the "queueName" argument
+func (t *Broker) AddWorker(ctx context.Context, qName string, worker Worker) error {
+	queue := t.qm.get(qName)
 	if queue == nil {
-		return errors.New("queue not exists")
+		return errors.Wrap(ErrQueueNotExist, qName)
 	}
 
 	qData, errChan, err := queue.Dequeue(ctx)
@@ -48,10 +51,12 @@ func (t *Broker) AddWorker(ctx context.Context, name string, worker Worker) erro
 	return nil
 }
 
+// Delegate delegate a message to a queue which has
+// name match with the "queueName" argument
 func (t *Broker) Delegate(ctx context.Context, name string, data []byte) error {
-	queue := t.QueueMapper.Get(name)
+	queue := t.qm.get(name)
 	if queue == nil {
-		return fmt.Errorf("queue \"%s\" not exists", name)
+		return errors.Wrap(ErrQueueNotExist, name)
 	}
 	return queue.Enqueue(ctx, data)
 }

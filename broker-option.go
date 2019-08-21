@@ -1,10 +1,13 @@
 package workerpool
 
+// BrokerOption broker option is function that help to configure the broker
 type BrokerOption = func (broker *Broker) error
 
+// WithQueue register a queue with optional option
+// you can bind worker with this queue by using WithWorker function
 func WithQueue(name string, queue IQueue, options ...QueueOption) BrokerOption {
 	return func(broker *Broker) error {
-		err := broker.Add(name, queue)
+		err := broker.qm.add(name, queue)
 		if err != nil {
 			return err
 		}
