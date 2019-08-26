@@ -4,12 +4,17 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+
+	"github.com/jkaveri/goabs-workerpool/internal/abs"
 )
 
 // Broker implement IWorkerPool and IDelegator
 type Broker struct {
 	qm *queueMap
 }
+
+var _ IDelegator = (*Broker)(nil)
+var _ IWorkerPool = (*Broker)(nil)
 
 // NewBroker create new broker with broker options
 func NewBroker(opts ...BrokerOption) (*Broker, error) {
@@ -27,13 +32,13 @@ func NewBroker(opts ...BrokerOption) (*Broker, error) {
 
 // AddWorker add worker to handle a message of queue which has
 // name match with the "queueName" argument
-func (t *Broker) AddWorker(ctx context.Context, qName string, worker Worker) error {
+func (t *Broker) AddWorker(ctx context.Context, qName string, worker abs.Worker) error {
 	queue := t.qm.get(qName)
 	if queue == nil {
 		return errors.Wrap(ErrQueueNotExist, qName)
 	}
 
-	qData, errChan, err := queue.Dequeue(ctx)
+	qData, err := queue.Dequeue(ctx)
 	if err != nil {
 		return errors.Wrap(err, "cannot dequeue when add worker")
 	}
@@ -41,8 +46,8 @@ func (t *Broker) AddWorker(ctx context.Context, qName string, worker Worker) err
 	go func() {
 		for {
 			select {
-			case item := <-qData:
-				errChan <- worker(ctx, item)
+			case msg := <-qData:
+				msg.OnComplete(ctx, worker(ctx, msg.GetData()))
 			case <-ctx.Done():
 				return
 			}
@@ -58,5 +63,5 @@ func (t *Broker) Delegate(ctx context.Context, name string, data []byte) error {
 	if queue == nil {
 		return errors.Wrap(ErrQueueNotExist, name)
 	}
-	return queue.Enqueue(ctx, data)
+	return queue.Enqueue(ctx, NewMessage(data, nil))
 }

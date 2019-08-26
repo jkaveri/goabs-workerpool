@@ -1,16 +1,8 @@
-package workerpool
+package abs
 
 import (
 	"context"
 )
-
-// data serialization: using byte as generic data
-// for go channel we can use encoding/gob to encode
-// way for logging: logging can be handle by worker it self we can use goabs-log package for logging
-// @TODO: way for error handling
-// @TODO: testing
-// @TODO: performance:w
-// @TODO: check race condition
 
 // Worker a function that receive context and data in []byte from queue then
 // return an error if there are any unexpected problem happens the returned error
@@ -37,14 +29,22 @@ type IWorkerPool interface {
 // IQueue interface of a queue
 type IQueue interface {
 	// Enqueue add message to queue
-	Enqueue(ctx context.Context, data []byte) error
+	Enqueue(ctx context.Context, data IMessage) error
 
 	// Dequeue get message from queue. This function return 3 values
-	// 1, `message` a read-only channel which will be feed by `Enqueue` function
-	// 2, `error` a write-only channel which is used return error of worker function.
-	// 3. `error` not nil if there are any problem when dequeue the message
-	Dequeue(ctx context.Context) (<-chan []byte, chan<- error, error)
-	
+	// `message` a read-only channel which will be feed by `Enqueue` function
+	// `error` not nil if there are any problem when dequeue the message
+	Dequeue(ctx context.Context) (<-chan IMessage, error)
+
 	// Dispose which will be used to clear up the queue when not using
 	Dispose()
+}
+
+// IMessage represent for a queue message
+type IMessage interface {
+	// GetData return message data in byte
+	GetData() []byte
+
+	// OnComplete func will be call when message processing completed
+	OnComplete(ctx context.Context, err error)
 }

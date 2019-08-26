@@ -9,6 +9,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/jkaveri/goabs-workerpool/internal/mock"
 )
 
 func TestNewBroker(t *testing.T) {
@@ -119,8 +121,8 @@ func TestBroker_AddWorkerWhenDequeueError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	ctx := context.TODO()
-	mockQueue := NewMockQueue(ctrl)
-	mockQueue.EXPECT().Dequeue(ctx).Return(nil, nil, expectedErr)
+	mockQueue := mock.NewMockQueue(ctrl)
+	mockQueue.EXPECT().Dequeue(ctx).Return(nil, expectedErr)
 
 	// build worker
 	qm := newQueueMap()
@@ -140,16 +142,15 @@ func TestBroker_AddWorker_ShouldBeCalled(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1) // add pending tasks
 
-	dataChan := make(chan []byte, 1)
-	errChan := make(chan error, 1)
-	expectedData := []byte("test")
+	dataChan := make(chan IMessage, 1)
+	expectedData := NewMessage([]byte("test"), nil)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	ctx := context.TODO()
 
 	// Mock Queue
-	mockQueue := NewMockQueue(ctrl)
-	mockQueue.EXPECT().Dequeue(ctx).Return(dataChan, errChan, nil)
+	mockQueue := mock.NewMockQueue(ctrl)
+	mockQueue.EXPECT().Dequeue(ctx).Return(dataChan, nil)
 
 	// build worker
 	qm := newQueueMap()
@@ -158,7 +159,7 @@ func TestBroker_AddWorker_ShouldBeCalled(t *testing.T) {
 
 	// mock worker
 	worker := func(ctx context.Context, data []byte) error {
-		assert.Equal(t, expectedData, data) // assertion
+		assert.Equal(t, expectedData.GetData(), data) // assertion
 		wg.Done()
 		return nil
 	}
@@ -171,64 +172,19 @@ func TestBroker_AddWorker_ShouldBeCalled(t *testing.T) {
 	wg.Wait()
 }
 
-func TestBroker_AddWorker_ErrChanShouldBeFeed(t *testing.T) {
-	// Arrange
-	const qName = "test_queue"
-	expectedErr := errors.New("expected")
-	var wg sync.WaitGroup
-	wg.Add(2)
-	dataChan := make(chan []byte, 1)
-	errChan := make(chan error, 1)
-	expectedData := []byte("test")
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	ctx := context.TODO()
-
-	// mock queue
-	mockQueue := NewMockQueue(ctrl)
-	mockQueue.EXPECT().Dequeue(ctx).Return(dataChan, errChan, nil)
-
-	// build broker
-	qm := newQueueMap()
-	_ = qm.add(qName, mockQueue)
-	broker := &Broker{qm: qm}
-
-	// select the error channel for assertion
-	go func() {
-		err :=<- errChan
-		assert.Equal(t, expectedErr, err) // assertion
-		wg.Done()
-	}()
-
-	// mock worker
-	worker := func(ctx context.Context, data []byte) error {
-		assert.Equal(t, expectedData, data)
-		wg.Done()
-		return expectedErr // return error should be feed into error channel
-	}
-
-	// Action
-	err := broker.AddWorker(ctx, qName, worker)
-	assert.Nil(t, err) // assertion
-	dataChan <- expectedData // feed data into the channel
-
-	wg.Wait()
-}
-
 func TestBroker_AddWorker_CancelWorker(t *testing.T) {
 	// Arrange
 	const qName = "test_queue"
 
-	dataChan := make(chan []byte)
-	errChan := make(chan error)
-	expectedData := []byte("test")
+	dataChan := make(chan IMessage)
+	expectedData := NewMessage([]byte("test"), nil)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	ctx, cancel := context.WithCancel(context.Background())
 	notCall := true
 	// Mock Queue
-	mockQueue := NewMockQueue(ctrl)
-	mockQueue.EXPECT().Dequeue(ctx).Return(dataChan, errChan, nil)
+	mockQueue := mock.NewMockQueue(ctrl)
+	mockQueue.EXPECT().Dequeue(ctx).Return(dataChan, nil)
 
 	// build worker
 	qm := newQueueMap()
@@ -258,13 +214,13 @@ func TestBroker_AddWorker_CancelWorker(t *testing.T) {
 func TestBroker_Delegate(t *testing.T) {
 	// arrange
 	const qName = "test_queue"
-	data := []byte("data")
+	data := NewMessage([]byte("data"), nil)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	ctx := context.TODO()
 
 	// mock queue
-	mockQueue := NewMockQueue(ctrl)
+	mockQueue := mock.NewMockQueue(ctrl)
 	mockQueue.EXPECT().Enqueue(ctx, data).Return(nil)
 
 	// build broker
@@ -273,7 +229,7 @@ func TestBroker_Delegate(t *testing.T) {
 	broker := &Broker{qm:qm}
 
 	// action
-	err := broker.Delegate(context.TODO(), qName, data)
+	err := broker.Delegate(ctx, qName, data.GetData())
 
 	// assertion
 	assert.Nil(t, err)

@@ -2,13 +2,15 @@ package workerpool
 
 import (
 	"context"
+
+	"github.com/jkaveri/goabs-workerpool/internal/abs"
 )
 
 // QueueOption function configure queue
 type QueueOption = func(name string, broker *Broker) error
 
 // WithWorkers create queue option which helps to add n workers to queue
-func WithWorkers(ctx context.Context, worker Worker, n int) QueueOption {
+func WithWorkers(ctx context.Context, worker abs.Worker, n int) QueueOption {
 	if n <= 0 {
 		n = 1
 	}
@@ -23,7 +25,7 @@ func WithWorkers(ctx context.Context, worker Worker, n int) QueueOption {
 	}
 }
 // WithWorker shortcut of WithWorkers(ctx, worker, 1)
-func WithWorker(ctx context.Context, worker Worker) QueueOption {
+func WithWorker(ctx context.Context, worker abs.Worker) QueueOption {
 	return WithWorkers(ctx, worker, 1)
 }
 

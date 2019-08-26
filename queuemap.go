@@ -4,23 +4,25 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+
+	"github.com/jkaveri/goabs-workerpool/internal/abs"
 )
 
 // queueMap manage queue with race condition concern
 type queueMap struct {
-	queues map[string]IQueue
+	queues map[string]abs.IQueue
 	mutex  sync.Mutex
 }
 
 // newQueueMap create queue mapper
 func newQueueMap() *queueMap {
 	return &queueMap{
-		queues: make(map[string]IQueue),
+		queues: make(map[string]abs.IQueue),
 	}
 }
 
 // add add queue with name
-func (t *queueMap) add(name string, queue IQueue) error {
+func (t *queueMap) add(name string, queue abs.IQueue) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	if _, ok := t.queues[name]; ok {
@@ -42,7 +44,7 @@ func (t *queueMap) remove(name string) {
 }
 
 // get getting queue by name
-func (t *queueMap) get(name string) IQueue {
+func (t *queueMap) get(name string) abs.IQueue {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	return t.queues[name]
