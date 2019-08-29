@@ -35,17 +35,17 @@ func (m *MockDelegator) EXPECT() *MockDelegatorMockRecorder {
 }
 
 // Delegate mocks base method
-func (m *MockDelegator) Delegate(ctx context.Context, queueName string, data []byte) error {
+func (m *MockDelegator) Delegate(ctx context.Context, queueName string, message []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delegate", ctx, queueName, data)
+	ret := m.ctrl.Call(m, "Delegate", ctx, queueName, message)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Delegate indicates an expected call of Delegate
-func (mr *MockDelegatorMockRecorder) Delegate(ctx, queueName, data interface{}) *gomock.Call {
+func (mr *MockDelegatorMockRecorder) Delegate(ctx, queueName, message interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delegate", reflect.TypeOf((*MockDelegator)(nil).Delegate), ctx, queueName, data)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delegate", reflect.TypeOf((*MockDelegator)(nil).Delegate), ctx, queueName, message)
 }
 
 // MockWorkerPool is a mock of IWorkerPool interface
@@ -71,18 +71,18 @@ func (m *MockWorkerPool) EXPECT() *MockWorkerPoolMockRecorder {
 	return m.recorder
 }
 
-// AddWorker mocks base method
-func (m *MockWorkerPool) AddWorker(ctx context.Context, queueName string, worker abs.Worker) error {
+// RegisterWorker mocks base method
+func (m *MockWorkerPool) BindWorker(ctx context.Context, queueName string, worker abs.WorkerFunc) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddWorker", ctx, queueName, worker)
+	ret := m.ctrl.Call(m, "RegisterWorker", ctx, queueName, worker)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// AddWorker indicates an expected call of AddWorker
+// RegisterWorker indicates an expected call of RegisterWorker
 func (mr *MockWorkerPoolMockRecorder) AddWorker(ctx, queueName, worker interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddWorker", reflect.TypeOf((*MockWorkerPool)(nil).AddWorker), ctx, queueName, worker)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterWorker", reflect.TypeOf((*MockWorkerPool)(nil).BindWorker), ctx, queueName, worker)
 }
 
 // MockQueue is a mock of IQueue interface
@@ -109,7 +109,7 @@ func (m *MockQueue) EXPECT() *MockQueueMockRecorder {
 }
 
 // Enqueue mocks base method
-func (m *MockQueue) Enqueue(ctx context.Context, data abs.IMessage) error {
+func (m *MockQueue) Enqueue(ctx context.Context, data []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Enqueue", ctx, data)
 	ret0, _ := ret[0].(error)
@@ -123,10 +123,10 @@ func (mr *MockQueueMockRecorder) Enqueue(ctx, data interface{}) *gomock.Call {
 }
 
 // Dequeue mocks base method
-func (m *MockQueue) Dequeue(ctx context.Context) (<-chan abs.IMessage, error) {
+func (m *MockQueue) Dequeue(ctx context.Context) (<-chan abs.IQueueItem, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Dequeue", ctx)
-	ret0, _ := ret[0].(<-chan abs.IMessage)
+	ret0, _ := ret[0].(<-chan abs.IQueueItem)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -149,51 +149,51 @@ func (mr *MockQueueMockRecorder) Dispose() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dispose", reflect.TypeOf((*MockQueue)(nil).Dispose))
 }
 
-// MockIMessage is a mock of IMessage interface
-type MockIMessage struct {
+// MockIQueueItem is a mock of IQueueItem interface
+type MockIQueueItem struct {
 	ctrl     *gomock.Controller
-	recorder *MockIMessageMockRecorder
+	recorder *MockIQueueItemMockRecorder
 }
 
-// MockIMessageMockRecorder is the mock recorder for MockIMessage
-type MockIMessageMockRecorder struct {
-	mock *MockIMessage
+// MockIQueueItemMockRecorder is the mock recorder for MockIQueueItem
+type MockIQueueItemMockRecorder struct {
+	mock *MockIQueueItem
 }
 
-// NewMockIMessage creates a new mock instance
-func NewMockIMessage(ctrl *gomock.Controller) *MockIMessage {
-	mock := &MockIMessage{ctrl: ctrl}
-	mock.recorder = &MockIMessageMockRecorder{mock}
+// NewMockIQueueItem creates a new mock instance
+func NewMockIQueueItem(ctrl *gomock.Controller) *MockIQueueItem {
+	mock := &MockIQueueItem{ctrl: ctrl}
+	mock.recorder = &MockIQueueItemMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockIMessage) EXPECT() *MockIMessageMockRecorder {
+func (m *MockIQueueItem) EXPECT() *MockIQueueItemMockRecorder {
 	return m.recorder
 }
 
-// GetData mocks base method
-func (m *MockIMessage) GetData() []byte {
+// Data mocks base method
+func (m *MockIQueueItem) Data() []byte {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetData")
+	ret := m.ctrl.Call(m, "Data")
 	ret0, _ := ret[0].([]byte)
 	return ret0
 }
 
-// GetData indicates an expected call of GetData
-func (mr *MockIMessageMockRecorder) GetData() *gomock.Call {
+// Data indicates an expected call of Data
+func (mr *MockIQueueItemMockRecorder) Data() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetData", reflect.TypeOf((*MockIMessage)(nil).GetData))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Data", reflect.TypeOf((*MockIQueueItem)(nil).Data))
 }
 
-// OnComplete mocks base method
-func (m *MockIMessage) OnComplete(ctx context.Context, err error) {
+// Complete mocks base method
+func (m *MockIQueueItem) Complete(ctx context.Context, err error) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "OnComplete", ctx, err)
+	m.ctrl.Call(m, "Complete", ctx, err)
 }
 
-// OnComplete indicates an expected call of OnComplete
-func (mr *MockIMessageMockRecorder) OnComplete(ctx, err interface{}) *gomock.Call {
+// Complete indicates an expected call of Complete
+func (mr *MockIQueueItemMockRecorder) Complete(ctx, err interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OnComplete", reflect.TypeOf((*MockIMessage)(nil).OnComplete), ctx, err)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Complete", reflect.TypeOf((*MockIQueueItem)(nil).Complete), ctx, err)
 }

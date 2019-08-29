@@ -4,12 +4,14 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/jkaveri/goabs-workerpool/internal/abs"
 	"github.com/jkaveri/goabs-workerpool/internal/mock"
 )
 
@@ -18,6 +20,7 @@ func TestNewBroker(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.NotNil(t, broker)
+	assert.NotNil(t, broker.qm)
 }
 
 func TestNewBroker_WithOptions(t *testing.T) {
@@ -84,35 +87,39 @@ func TestNewBroker_WithOptions(t *testing.T) {
 	}
 }
 
-func TestBroker_AddWorker(t *testing.T) {
+func TestBroker_Assign(t *testing.T) {
 	const qName = "test_queue"
 
 	// build broker
 	qm := newQueueMap()
-	broker := &Broker{qm: qm}
+	broker := &Broker{
+		qm: qm,
+	}
 	_ = qm.add(qName, &fakeQueue{})
 
 	// Action
-	err := broker.AddWorker(context.TODO(), qName, fakeWorker)
+	err := broker.Assign(context.TODO(), qName, fakeWorker, 1)
 
 	// Assertion
 	assert.Nil(t, err)
 }
 
-func TestBroker_AddWorkerReturnError(t *testing.T) {
+func TestBroker_AssignReturnError(t *testing.T) {
 	// build worker
 	qm := newQueueMap()
-	broker := &Broker{qm: qm}
+	broker := &Broker{
+		qm: qm,
+	}
 	qName := "test_queue"
 
 	// Action
-	err := broker.AddWorker(context.TODO(), qName, fakeWorker)
+	err := broker.Assign(context.TODO(), qName, fakeWorker, 1)
 
 	// Assertion
 	assert.Equal(t, ErrQueueNotExist, errors.Cause(err))
 }
 
-func TestBroker_AddWorkerWhenDequeueError(t *testing.T) {
+func TestBroker_AssignWhenDequeueError(t *testing.T) {
 	// Arrange
 	const qName = "test_queue"
 	expectedErr := errors.New("some error")
@@ -120,101 +127,107 @@ func TestBroker_AddWorkerWhenDequeueError(t *testing.T) {
 	// mock queue
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	ctx := context.TODO()
+	bgCtx := context.Background()
+	ctx, _ := context.WithCancel(bgCtx)
 	mockQueue := mock.NewMockQueue(ctrl)
 	mockQueue.EXPECT().Dequeue(ctx).Return(nil, expectedErr)
 
 	// build worker
 	qm := newQueueMap()
 	_ = qm.add(qName, mockQueue)
-	broker := &Broker{qm: qm}
+	broker := &Broker{
+		qm: qm,
+	}
 
 	// Action
-	err := broker.AddWorker(ctx, qName, fakeWorker)
+	err := broker.Assign(bgCtx, qName, fakeWorker, 1)
 
 	// Assertion
 	assert.Equal(t, expectedErr, errors.Cause(err))
 }
 
-func TestBroker_AddWorker_ShouldBeCalled(t *testing.T) {
+func TestBroker_Assign_ShouldBeCalled(t *testing.T) {
 	// Arrange
 	const qName = "test_queue"
 	var wg sync.WaitGroup
 	wg.Add(1) // add pending tasks
 
-	dataChan := make(chan IMessage, 1)
-	expectedData := NewMessage([]byte("test"), nil)
+	qItemChan := make(chan abs.IQueueItem, 1)
+	qItem := NewQueueItem([]byte("test"))
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	ctx := context.TODO()
 
 	// Mock Queue
 	mockQueue := mock.NewMockQueue(ctrl)
-	mockQueue.EXPECT().Dequeue(ctx).Return(dataChan, nil)
+	mockQueue.EXPECT().Dequeue(gomock.Any()).Return(qItemChan, nil)
 
 	// build worker
 	qm := newQueueMap()
 	_ = qm.add(qName, mockQueue)
-	broker := &Broker{qm: qm}
-
+	broker := &Broker{
+		qm: qm,
+	}
 	// mock worker
 	worker := func(ctx context.Context, data []byte) error {
-		assert.Equal(t, expectedData.GetData(), data) // assertion
+		assert.Equal(t, qItem.Data(), data) // assertion
 		wg.Done()
 		return nil
 	}
 
 	// Action
-	err := broker.AddWorker(context.TODO(), qName, worker)
+	err := broker.Assign(context.TODO(), qName, worker, 1)
 	assert.Nil(t, err) // assertion
-	// feed data into data-channel so the worker should receive the data
-	dataChan <- expectedData
+	// feed obj into obj-channel so the worker should receive the obj
+	qItemChan <- qItem
 	wg.Wait()
 }
 
-func TestBroker_AddWorker_CancelWorker(t *testing.T) {
+func TestBroker_Assign_CancelWorker(t *testing.T) {
 	// Arrange
 	const qName = "test_queue"
 
-	dataChan := make(chan IMessage)
-	expectedData := NewMessage([]byte("test"), nil)
+	qItemChan := make(chan IQueueItem, 1)
+	qItem := NewQueueItem([]byte("test"))
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	ctx, cancel := context.WithCancel(context.Background())
-	notCall := true
+	called := false
 	// Mock Queue
 	mockQueue := mock.NewMockQueue(ctrl)
-	mockQueue.EXPECT().Dequeue(ctx).Return(dataChan, nil)
+	mockQueue.EXPECT().Dequeue(gomock.Any()).Return(qItemChan, nil)
 
 	// build worker
 	qm := newQueueMap()
 	_ = qm.add(qName, mockQueue)
-	broker := &Broker{qm: qm}
+	broker := &Broker{
+		qm: qm,
+	}
 
 	// mock worker
 	worker := func(ctx context.Context, data []byte) error {
-		notCall = false
+		called = true
 		return nil
 	}
 
 	// Action
-	err := broker.AddWorker(ctx, qName, worker)
+	err := broker.Assign(ctx, qName, worker, 1)
 	assert.Nil(t, err) // assertion
 
 	// cancel worker
 	cancel()
-	go func() {
-		<- dataChan
-	}()
-	// feed data into data-channel so the worker should receive the data
-	dataChan <- expectedData
-	assert.Equal(t, true, notCall)
+	// makesure done channel to be selected before feed qItemChan
+	time.Sleep(1 *time.Millisecond)
+	qItemChan <- qItem
+	assert.Equal(t, false, called)
+	assert.Equal(t, 1, len(qItemChan))
+	assert.Equal(t, 0, broker.Goroutines())
 }
 
 func TestBroker_Delegate(t *testing.T) {
 	// arrange
 	const qName = "test_queue"
-	data := NewMessage([]byte("data"), nil)
+	data := []byte("obj")
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	ctx := context.TODO()
@@ -226,10 +239,12 @@ func TestBroker_Delegate(t *testing.T) {
 	// build broker
 	qm := newQueueMap()
 	_ = qm.add(qName, mockQueue)
-	broker := &Broker{qm:qm}
+	broker := &Broker{
+		qm: qm,
+	}
 
 	// action
-	err := broker.Delegate(ctx, qName, data.GetData())
+	err := broker.Delegate(ctx, qName, data)
 
 	// assertion
 	assert.Nil(t, err)
@@ -243,8 +258,10 @@ func TestBroker_Delegate_ReturnQueueNotExistError(t *testing.T) {
 
 	// build broker
 	qm := newQueueMap()
-	broker := &Broker{qm:qm}
-	data := []byte("data")
+	broker := &Broker{
+		qm: qm,
+	}
+	data := []byte("obj")
 
 	// action
 	err := broker.Delegate(context.TODO(), qName, data)
@@ -254,4 +271,23 @@ func TestBroker_Delegate_ReturnQueueNotExistError(t *testing.T) {
 	assert.Equal(t, ErrQueueNotExist, errors.Cause(err))
 }
 
+func TestBroker_Cancel(t *testing.T) {
+	const qname = "test"
+	called := false
+	qmap := &queueMap{queues: map[string]*queueMapItem{
+		qname: {
+			queue:  &fakeQueue{},
+			cancel: func() {
+				called = true
+			},
+		},
+	}}
 
+	broker := &Broker{
+		qm:    qmap,
+	}
+
+	broker.Cancel(qname)
+
+	assert.True(t, called)
+}

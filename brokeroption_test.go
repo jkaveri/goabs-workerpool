@@ -18,7 +18,8 @@ func TestWithQueue(t *testing.T) {
 	err := opt(broker)
 
 	assert.Nil(t, err)
-	assert.Equal(t, broker.qm.queues[qName], q)
+	assert.NotNil(t, broker.qm.queues[qName])
+	assert.Equal(t, q, broker.qm.queues[qName].queue)
 }
 
 func TestWithQueue_MapperReturnErr(t *testing.T) {
@@ -38,11 +39,11 @@ func TestWithQueue_MapperReturnErr(t *testing.T) {
 
 func TestWithQueue_QueueOption(t *testing.T) {
 	testErr := errors.New("test")
-	testcases := []struct{
-		name string
+	testcases := []struct {
+		name        string
 		queueOption func(called *bool) QueueOption
-		err error
-	} {
+		err         error
+	}{
 		{
 			"should_be_called",
 			func(called *bool) QueueOption {

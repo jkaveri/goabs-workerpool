@@ -12,13 +12,13 @@ type fakeQueue struct {
 var _ IQueue = (*fakeQueue)(nil)
 
 // Enqueue add msg to queue
-func (f *fakeQueue) Enqueue(ctx context.Context, data IMessage) error {
+func (f *fakeQueue) Enqueue(ctx context.Context, data []byte) error {
 	return nil
 }
 
 // Dequeue get msg from queue
 // nolint gocritic
-func (f *fakeQueue) Dequeue(ctx context.Context) (<-chan IMessage, error) {
+func (f *fakeQueue) Dequeue(ctx context.Context) (<-chan IQueueItem, error) {
 	return nil, nil
 }
 

@@ -8,15 +8,11 @@ import (
 )
 
 func TestWithWorker(t *testing.T) {
-	queueOption := WithWorker(context.TODO(), fakeWorker)
+	const qName = "test"
+	queueOption := WithWorker(context.TODO(), fakeWorker, 1)
 	assert.NotNil(t, queueOption)
 }
 
-func TestWithWorkers(t *testing.T) {
-	opt := WithWorkers(context.TODO(), fakeWorker, 1)
-	assert.NotNil(t, opt)
-}
-
-func fakeWorker(ctx context.Context, data []byte) error {
+func fakeWorker(_ context.Context, _ []byte) error {
 	return nil
 }
